@@ -1,0 +1,28 @@
+project:
+  name: Fraud Detection System
+  version: 1.0.0
+
+data:
+  customers: data/raw/customers.csv
+  transactions: data/raw/transactions.csv
+
+model:
+  model_path: models/isolation_forest.pkl
+  preprocessor_path: models/scaler.pkl
+  metadata_path: models/metadata.json
+
+training:
+  contamination: 0.01
+  n_estimators: 200
+  random_state: 42
+
+decision_engine:
+  medium_threshold: 0.10
+
+logging:
+  level: INFO
+  file: logs/fraud_system.log
+
+api:
+  host: 127.0.0.1
+  port: 8000
