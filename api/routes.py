@@ -2,114 +2,58 @@ import pandas as pd
 
 from fastapi import APIRouter, HTTPException
 
-from api.schemas import TransactionRequest
+from api.schemas import TransactionRequest, FraudPredictionResponse
 from inference.pipeline import FraudPipeline
 from utils.logger import logger
 
-
 router = APIRouter()
 
-
 # --------------------------------------------------
-# Load Pipeline Once
+# Load Pipeline Once (heavy: model + SHAP background)
 # --------------------------------------------------
-
 logger.info("=" * 60)
 logger.info("Initializing Fraud Detection API...")
-logger.info("Loading Fraud Pipeline...")
-
 pipeline = FraudPipeline()
-
 logger.info("Fraud Pipeline loaded successfully.")
 logger.info("=" * 60)
 
 
-# --------------------------------------------------
-# Health Endpoint
-# --------------------------------------------------
-
 @router.get("/")
 def home():
-    """
-    Health check endpoint.
-    """
-
-    logger.info("Health check requested.")
-
-    return {
-        "message": "Fraud Intelligence System API",
-        "status": "Running",
-    }
+    """Health check endpoint."""
+    return {"message": "Fraud Intelligence System API", "status": "Running"}
 
 
-# --------------------------------------------------
-# Analyze Transaction
-# --------------------------------------------------
-
-@router.post("/analyze")
-def analyze(transaction: TransactionRequest):
-    """
-    Analyze a single transaction for fraud.
-    """
-
+@router.post(
+    "/analyze_transaction",           # spec §10 endpoint name
+    response_model=FraudPredictionResponse,
+)
+def analyze_transaction(transaction: TransactionRequest):
+    """Analyze a single transaction for fraud."""
     try:
+        logger.info(f"Analyzing transaction {transaction.transaction_id}")
 
-        logger.info("=" * 60)
-        logger.info("Received fraud analysis request.")
+        df = pd.DataFrame([transaction.model_dump()])
+        result = pipeline.analyze(df)[0]
 
-        logger.info(
-            f"Transaction ID: {transaction.transaction_id}"
-        )
-
-        logger.info(
-            f"Customer ID: {transaction.customer_id}"
-        )
-
-        # ----------------------------------------
-        # Convert request to DataFrame
-        # ----------------------------------------
-
-        logger.info("Creating DataFrame from request...")
-
-        df = pd.DataFrame(
-            [transaction.model_dump()]
-        )
+        # Echo transaction_id back per spec §6 output contract
+        result["transaction_id"] = transaction.transaction_id
 
         logger.info(
-            f"Input dataframe shape: {df.shape}"
+            f"Result: {result['prediction']} | {result['risk_level']} | "
+            f"{result['recommended_action']}"
         )
-
-        # ----------------------------------------
-        # Run Pipeline
-        # ----------------------------------------
-
-        logger.info("Running fraud detection pipeline...")
-
-        result = pipeline.analyze(df)
-
-        logger.info("Fraud analysis completed successfully.")
-
-        logger.info(
-            f"Prediction: {result[0]['prediction']}"
-        )
-
-        logger.info(
-            f"Risk Level: {result[0]['risk_level']}"
-        )
-
-        logger.info(
-            f"Recommended Action: {result[0]['recommended_action']}"
-        )
-
-        logger.info("=" * 60)
-
-        return result[0]
+        return result
 
     except Exception as e:
-
         logger.exception("Fraud analysis request failed.")
-
         raise HTTPException(
             status_code=500,
             detail=f"Fraud analysis failed: {str(e)}",
         )
+
+
+# Backwards-compatible alias so the old /analyze path keeps working
+@router.post("/analyze", response_model=FraudPredictionResponse)
+def analyze(transaction: TransactionRequest):
+    return analyze_transaction(transaction)
