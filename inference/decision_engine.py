@@ -1,34 +1,41 @@
+from utils.config import config
 from utils.logger import logger
 
 
 class DecisionEngine:
     """
     Determines the fraud risk level and recommended action
-    based on the normalized fraud risk score.
+    based on the normalized fraud risk score and model predictions.
 
     Risk Score:
         0.0 -> Lowest Risk
         1.0 -> Highest Risk
     """
 
-    def evaluate(self, prediction: int, risk_score: float):
+    def __init__(self):
+        # Load thresholds directly from config with safety fallbacks
+        try:
+            self.high_threshold = config.decision_engine.high_threshold
+            self.medium_threshold = config.decision_engine.medium_threshold
+        except AttributeError:
+            logger.warning("Config thresholds not found. Falling back to default values (0.80 / 0.50).")
+            self.high_threshold = 0.80
+            self.medium_threshold = 0.50
+
+    def evaluate(self, prediction: int, risk_score: float) -> dict:
         """
-        Evaluate the model output.
+        Evaluate the model output using thresholds configured in config.yaml.
 
         Args:
-            prediction: Isolation Forest prediction
-                        (-1 = Anomaly, 1 = Normal)
-
+            prediction: Isolation Forest prediction (-1 = Anomaly, 1 = Normal)
             risk_score: Normalized fraud risk score (0-1)
 
         Returns:
             Dictionary containing:
-                - risk_level
-                - recommended_action
+                - risk_level ("High", "Medium", "Low")
+                - recommended_action ("Block Transaction", "Manual Review", "Approve")
         """
-
         try:
-
             logger.info(
                 f"Evaluating transaction "
                 f"(prediction={prediction}, risk_score={risk_score:.4f})"
@@ -37,9 +44,7 @@ class DecisionEngine:
             # -------------------------------------
             # High Risk
             # -------------------------------------
-
-            if prediction == -1 or risk_score >= 0.80:
-
+            if prediction == -1 or risk_score >= self.high_threshold:
                 decision = {
                     "risk_level": "High",
                     "recommended_action": "Block Transaction",
@@ -48,9 +53,7 @@ class DecisionEngine:
             # -------------------------------------
             # Medium Risk
             # -------------------------------------
-
-            elif risk_score >= 0.50:
-
+            elif risk_score >= self.medium_threshold:
                 decision = {
                     "risk_level": "Medium",
                     "recommended_action": "Manual Review",
@@ -59,9 +62,7 @@ class DecisionEngine:
             # -------------------------------------
             # Low Risk
             # -------------------------------------
-
             else:
-
                 decision = {
                     "risk_level": "Low",
                     "recommended_action": "Approve",
@@ -76,9 +77,7 @@ class DecisionEngine:
             return decision
 
         except Exception:
-
             logger.exception("Decision engine failed.")
-
             raise
 
 
