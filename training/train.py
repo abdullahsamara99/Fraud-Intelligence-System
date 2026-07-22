@@ -180,27 +180,33 @@ def train():
             logger.info("Isolation Forest training completed successfully.")
 
             # ==================================================
-            # Calibrate normalization bounds (FIX)
-            # Predictor reads these from metadata for stable, batch-
-            # independent 0-1 risk scores. Use robust percentiles.
+            # Calibrate normalization bounds  (SYMMETRIC-AROUND-ZERO)
+            # IsolationForest offsets decision_function so the inlier/outlier
+            # boundary is 0 (inliers > 0, outliers < 0). We normalize
+            # symmetrically around 0 so risk = 0.5 falls exactly on that
+            # boundary: every normal transaction (score > 0) maps to the Low
+            # band, and anomalies (score < 0) map to Medium or higher.
+            # The scale is the 99th percentile of scores (the "very normal"
+            # tail), which is robust to individual outliers.
             # ==================================================
             logger.info("Calibrating score normalization bounds...")
             train_scores = model.decision_function(X)
-            score_min = float(np.percentile(train_scores, 1))
-            score_max = float(np.percentile(train_scores, 99))
 
-            # Guard against a degenerate range
-            if score_max <= score_min:
-                logger.warning("Degenerate score range; using raw min/max.")
-                score_min = float(train_scores.min())
-                score_max = float(train_scores.max())
+            scale = float(np.percentile(train_scores, 99))
+            if scale <= 0:  # degenerate guard
+                scale = float(train_scores.max())
+                if scale <= 0:
+                    scale = 1e-6
+
+            score_min = -scale
+            score_max = scale
 
             logger.info(f"score_min={score_min:.5f}, score_max={score_max:.5f}")
             mlflow.log_metric("score_min", score_min)
             mlflow.log_metric("score_max", score_max)
 
             # ==================================================
-            # Proxy Evaluation: Precision@K (FIX)
+            # Proxy Evaluation: Precision@K
             # Only runs if a hidden is_fraud label is available.
             # ==================================================
             if labels is not None and labels.sum() > 0:
@@ -210,7 +216,6 @@ def train():
                     logger.info(f"Precision@{k}: {p:.4f}")
                     mlflow.log_metric(f"precision_at_{k}", p)
 
-                # Precision@(#actual frauds) — a natural operating point
                 n_frauds = int(labels.sum())
                 p_at_n = precision_at_k(labels, train_scores, n_frauds)
                 logger.info(f"Precision@{n_frauds} (=#frauds): {p_at_n:.4f}")
