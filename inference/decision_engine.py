@@ -13,23 +13,21 @@ class DecisionEngine:
     """
 
     def __init__(self):
-        # Read directly using dictionary / get methods to avoid AttributeError
-        # Adjust keys if your config structure is slightly different (e.g. config["decision_engine"])
+        # Read thresholds directly using the Config class's .get(*keys) method
         try:
-            if isinstance(config, dict):
-                decision_cfg = config.get("decision_engine", {})
-                self.high_threshold = decision_cfg.get("high_threshold", 0.80)
-                self.medium_threshold = decision_cfg.get("medium_threshold", 0.50)
-            else:
-                self.high_threshold = getattr(config, "high_threshold", 0.80)
-                self.medium_threshold = getattr(config, "medium_threshold", 0.50)
+            self.high_threshold = config.get("decision_engine", "high_threshold")
+            self.medium_threshold = config.get("decision_engine", "medium_threshold")
         except Exception as e:
-            logger.warning(f"Could not parse thresholds from config ({e}). Using fallbacks (0.80 / 0.50).")
+            logger.warning(
+                f"Could not parse thresholds from config ({e}). "
+                f"Falling back to default values (0.80 / 0.50)."
+            )
             self.high_threshold = 0.80
             self.medium_threshold = 0.50
 
         logger.info(
-            f"DecisionEngine initialized with High={self.high_threshold}, Medium={self.medium_threshold}"
+            f"DecisionEngine initialized with thresholds: "
+            f"High={self.high_threshold}, Medium={self.medium_threshold}"
         )
 
     def evaluate(self, prediction: int, risk_score: float) -> dict:
