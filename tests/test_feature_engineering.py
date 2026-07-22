@@ -12,13 +12,14 @@ def test_feature_engineering_creates_columns():
     df = create_features(df.head(20))
 
     expected_columns = [
-        "is_weekend",
+          "is_weekend",
         "is_night",
         "hour",
         "day_of_week",
         "transactions_last_24h",
-        "avg_amount_last_7d",
+        "transactions_last_7d",
         "merchant_category_frequency",
+        "amount_to_income_ratio",
     ]
 
     for column in expected_columns:
