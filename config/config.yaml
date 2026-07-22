@@ -17,9 +17,10 @@ training:
   random_state: 42
 
 decision_engine:
-  medium_threshold: 0.10
-
-logging:
+  low_threshold: 0.20    
+  medium_threshold: 0.50 
+  high_threshold: 0.80   
+  
   level: INFO
   file: logs/fraud_system.log
 
