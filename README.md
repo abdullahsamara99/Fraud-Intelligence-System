@@ -1,55 +1,79 @@
-<<<<<<< HEAD
 # Fraud Intelligence System
 
-An end-to-end Explainable AI (XAI) fraud detection platform that combines machine learning, feature engineering, business rules, SHAP explainability, and a local Large Language Model (LLM) to detect suspicious financial transactions and generate human-readable fraud analysis.
+An end-to-end Explainable AI (XAI) fraud detection platform that combines Machine Learning, Feature Engineering, SHAP Explainability, Business Decision Rules, and a Local Large Language Model (LLM) to detect suspicious banking transactions and generate human-readable fraud analysis.
 
 ---
 
 # Overview
 
-The Fraud Intelligence System is designed for real-time fraud detection in banking and financial services.
+Financial fraud continues to evolve in sophistication, making traditional rule-based detection systems insufficient for identifying novel attack patterns.
 
-Instead of only identifying anomalous transactions, the system explains **why** a transaction is suspicious and recommends the appropriate business action.
-
-The complete pipeline includes:
+The Fraud Intelligence System addresses this challenge by combining:
 
 - Advanced Feature Engineering
 - Isolation Forest Anomaly Detection
-- Risk Score Normalization
+- Fraud Risk Score Normalization
 - Business Decision Engine
-- SHAP Explainability
-- Local LLM Executive Summaries
+- SHAP Explainable AI
+- Local Large Language Model (Qwen2.5 via Ollama)
 - FastAPI REST API
 - MLflow Experiment Tracking
+
+Unlike traditional fraud detection systems that only classify transactions as fraudulent or legitimate, this platform explains *why* a transaction is considered suspicious and recommends an appropriate business action.
+
+---
+
+# Key Features
+
+- Isolation Forest unsupervised fraud detection
+- Customer behavioral profiling
+- Geographic inconsistency detection
+- Transaction frequency analysis
+- Absolute fraud risk normalization (0–1)
+- SHAP feature attribution
+- Local LLM executive fraud summaries
+- Business decision engine
+- FastAPI REST API
+- MLflow experiment tracking
+- Modular production-ready architecture
 
 ---
 
 # System Architecture
 
 ```text
-                ┌────────────────────┐
-                │ Incoming Transaction│
-                └──────────┬─────────┘
-                           │
-                           ▼
+                 Incoming Transaction
+                          │
+                          ▼
                  Feature Engineering
-                           │
-                           ▼
-                 Isolation Forest Model
-                           │
-                           ▼
-               Absolute Risk Score (0-1)
-                           │
-                           ▼
-               Business Decision Engine
-                           │
-                           ▼
-                SHAP Explainability
-                           │
-                           ▼
-           Local LLM (Qwen2.5 via Ollama)
-                           │
-                           ▼
+                          │
+                          ▼
+                 Data Preprocessing
+                          │
+                          ▼
+                 Isolation Forest
+                          │
+          ┌───────────────┴───────────────┐
+          ▼                               ▼
+  Raw Anomaly Score              Prediction
+          │                               │
+          └───────────────┬───────────────┘
+                          ▼
+              Risk Score Normalization
+                          │
+                          ▼
+             Business Decision Engine
+                          │
+                          ▼
+               SHAP Explainability
+                          │
+                          ▼
+          Local LLM (Qwen2.5 via Ollama)
+                          │
+                          ▼
+                Executive Fraud Report
+                          │
+                          ▼
                   FastAPI REST API
 ```
 
@@ -57,14 +81,15 @@ The complete pipeline includes:
 
 # Project Structure
 
-```
+```text
 Fraud_System/
 
-│
 ├── api/
 │   ├── app.py
 │   ├── routes.py
 │   └── schemas.py
+│
+├── config/
 │
 ├── data/
 │   └── raw/
@@ -87,9 +112,13 @@ Fraud_System/
 ├── evaluation/
 │   └── evaluate.py
 │
+├── tests/
+│
 ├── utils/
 │   └── logger.py
 │
+├── requirements.txt
+├── Dockerfile
 └── README.md
 ```
 
@@ -97,185 +126,201 @@ Fraud_System/
 
 # Dataset
 
-The system uses two datasets.
+The project uses two CSV datasets.
 
-### Customers
+## Customers Dataset
 
-Contains customer profile information including
+Contains customer profile information including:
 
 - Customer ID
+- Account Number
 - Home Country
 - Home City
+- Card Type
 - Monthly Income
 - Account Age
-- Card Type
 
-### Transactions
+## Transactions Dataset
 
-Contains transaction information including
+Contains transaction details including:
 
 - Transaction Amount
-- Merchant
-- Country
-- City
 - Currency
-- Transaction Channel
+- Merchant
+- Merchant Category
+- Transaction Country
+- Transaction City
 - Timestamp
-- Cross Border Indicator
+- Transaction Type
+- Payment Channel
+- Cross-border Indicator
 
 The datasets are merged using:
 
-```
+```text
 customer_id
 ```
 
 ---
 
+
 # Feature Engineering
 
-The feature engineering module creates behavioral fraud indicators.
+The system creates domain-specific behavioral features that improve anomaly detection beyond raw transaction values.
 
-## Time Features
+## Time-Based Features
 
-- Hour
+- Transaction Hour
 - Day of Week
 - Weekend Indicator
 - Night Transaction Indicator
 
-## Customer Features
+These features help identify suspicious activity occurring during unusual periods.
 
-- Average Transaction Amount
-- Transaction Count
-- Rolling 24-hour Transaction Count
+---
 
-## Merchant Features
+## Customer Behavioral Features
 
-- Merchant Category Frequency
+- Customer Average Transaction Amount
+- Customer Transaction Count
+- Rolling 24-Hour Transaction Count
+- Amount-to-Income Ratio
+
+These features model customer spending behavior and detect deviations from historical patterns.
+
+---
 
 ## Geographic Features
 
-- Cross Border Transaction
-- Geographic Inconsistency Indicator
+- Cross-border Transaction Indicator
+- Home Country
+- Home City
 
-## Financial Features
+These features identify transactions that occur outside the customer's normal geographic profile.
 
-- Amount to Monthly Income Ratio
+---
 
-These engineered features improve anomaly detection by capturing customer behavior rather than relying solely on raw transaction values.
+## Merchant Features
+
+- Merchant Category
+- Merchant Category Frequency
+
+Merchant behavior is incorporated to detect abnormal purchasing patterns.
 
 ---
 
 # Data Preprocessing
 
-The preprocessing pipeline is built using Scikit-learn.
+Before model training, all features are preprocessed using Scikit-learn pipelines.
 
-### Numerical Features
+## Numerical Features
 
-- Median Imputation
-- StandardScaler
+- Missing value imputation using Median
+- StandardScaler normalization
 
-### Categorical Features
+## Categorical Features
 
-- Most Frequent Imputation
-- OrdinalEncoder
+- Missing value imputation using Most Frequent
+- Ordinal Encoding
 - Unknown category handling
 
-The preprocessing pipeline is saved and reused during inference.
+The preprocessing pipeline is serialized and reused during inference to guarantee identical feature transformations.
 
 ---
 
 # Machine Learning Model
 
-The fraud detector uses an **Isolation Forest**.
+The fraud detector uses an Isolation Forest, an unsupervised anomaly detection algorithm.
 
-## Configuration
+Unlike supervised classifiers, Isolation Forest does not require fraud labels, making it suitable for real-world fraud datasets where confirmed fraud cases are rare.
+
+## Model Configuration
 
 | Parameter | Value |
-|------------|------:|
+|------------|--------|
 | Algorithm | Isolation Forest |
 | Trees | 200 |
 | Contamination | 0.01 |
 | Random State | 42 |
 | Parallel Jobs | All CPU Cores |
 
-Isolation Forest is well suited because fraud labels are usually unavailable or extremely imbalanced.
-
 ---
 
 # Fraud Risk Score
 
-Isolation Forest produces a raw anomaly score.
+Isolation Forest outputs a raw anomaly score through its `decision_function()`.
 
-Instead of batch normalization, the system applies **absolute normalization** using fixed score boundaries learned during training.
+Because these values are not intuitive for business users, the system converts them into a normalized fraud risk score between 0 and 1.
 
 ```
-Raw Score
-     │
-     ▼
-Clip to Training Range
-     │
-     ▼
-Normalize
-     │
-     ▼
-Risk Score (0–1)
+Raw Isolation Forest Score
+            │
+            ▼
+ Clip to Training Score Range
+            │
+            ▼
+ Absolute Score Normalization
+            │
+            ▼
+ Fraud Risk Score (0 – 1)
 ```
 
-Higher values indicate higher fraud risk.
+### Advantages
 
-Benefits:
+- Stable across API requests
+- Independent of batch size
+- Suitable for single transaction scoring
+- Easy interpretation by analysts
 
-- Stable inference
-- Single transaction scoring
-- Batch-independent predictions
-- Consistent interpretation
+| Risk Score | Interpretation |
+|------------|---------------|
+| 0.00 | Very Low Risk |
+| 0.50 | Medium Risk |
+| 1.00 | Very High Risk |
 
 ---
 
 # Business Decision Engine
 
-The machine learning output is converted into operational decisions.
+The machine learning output is translated into operational business decisions.
 
-| Risk Score | Risk Level | Recommended Action |
+## Decision Rules
+
+| Condition | Risk Level | Recommended Action |
 |------------|------------|--------------------|
-| ≥ 0.80 | High | Block Transaction |
-| 0.50 – 0.79 | Medium | Manual Review |
-| < 0.50 | Low | Approve |
+| Isolation Forest Prediction = -1 OR Risk Score ≥ 0.80 | High | Block Transaction |
+| Risk Score ≥ 0.50 | Medium | Manual Review |
+| Risk Score < 0.50 | Low | Approve |
 
-Isolation Forest anomalies are always classified as **High Risk**.
+This separation between machine learning and business logic makes decision thresholds configurable without retraining the model.
 
 ---
 
 # Explainable AI
 
-The system integrates SHAP to explain every prediction.
+The platform integrates SHAP (SHapley Additive exPlanations) to explain every prediction.
 
-## SHAP Features
+Instead of simply indicating whether a transaction is anomalous, SHAP identifies the features that contributed most to the prediction.
 
-- KernelExplainer
-- K-Means summarized background dataset
-- Cached explainer
-- Feature attribution
-- Production-ready optimization
+Each explanation includes:
 
-For every transaction the API returns:
+- Feature Name
+- SHAP Impact Score
+- Risk Direction
+- Ranked Importance
 
-- Top contributing features
-- Feature impact
-- Risk direction
-
-Example
+Example:
 
 ```json
 "top_features": [
     {
-        "feature": "is_weekend",
-        "impact": 0.021149,
+        "feature": "transaction_amount",
+        "impact": 0.05583,
         "direction": "Increase Risk"
     },
     {
-        "feature": "home_city",
-        "impact": 0.018796,
+        "feature": "is_weekend",
+        "impact": 0.04657,
         "direction": "Increase Risk"
     }
 ]
@@ -283,35 +328,49 @@ Example
 
 ---
 
-# LLM Explainability Layer
+# SHAP Optimization
 
-The project integrates a locally hosted LLM using **Ollama**.
+KernelExplainer is computationally expensive.
 
-Model:
+To improve inference speed, the project performs several optimizations.
 
-```
-qwen2.5:3b
-```
+### K-Means Background Summarization
 
-The LLM translates SHAP feature attributions into executive-level fraud summaries.
+The training data is summarized using SHAP K-Means clustering before building the explainer.
 
-Example:
+Benefits include:
 
-> Transaction flagged as Low risk primarily due to abnormal patterns in weekend activity, customer location, and monthly income characteristics. The transaction remains within acceptable operational thresholds and is recommended for approval.
-
-If the LLM is unavailable, the system automatically falls back to a deterministic rule-based explanation.
+- Smaller background dataset
+- Lower memory usage
+- Faster SHAP computation
 
 ---
 
-# SHAP Optimization
+### DenseData Compatibility Fix
 
-The SHAP explainer is built only once during server startup.
+Recent SHAP versions wrap K-Means results inside a DenseData object.
+
+To prevent runtime failures, the project extracts the underlying NumPy array before passing it to KernelExplainer.
+
+This resolves the common:
 
 ```
-API Startup
+DenseData object is not callable
+```
+
+error encountered in production deployments.
+
+---
+
+### Cached SHAP Explainer
+
+The SHAP explainer is built only once during application startup.
+
+```
+Server Startup
       │
       ▼
-Load Background Data
+Load Background Dataset
       │
       ▼
 Feature Engineering
@@ -320,109 +379,56 @@ Feature Engineering
 Preprocessing
       │
       ▼
-K-Means Background
+K-Means Sampling
       │
       ▼
 KernelExplainer
       │
       ▼
-Cache Explainer
+Cached for Future Requests
 ```
 
-This significantly reduces latency for real-time inference.
+Every API request reuses the cached explainer, significantly reducing response time.
 
 ---
 
-# REST API
+# LLM Explainability Layer
 
-## Home
+The system integrates a locally hosted Large Language Model using Ollama.
+
+## Model
 
 ```
-GET /
+qwen2.5:3b
 ```
 
-Response
+The LLM receives:
 
-```json
-{
-    "message": "Fraud Intelligence System API"
-}
-```
+- Risk Level
+- Recommended Action
+- Top SHAP Features
+
+It then generates a concise executive summary suitable for fraud analysts and AML investigators.
+
+Example:
+
+> Transaction flagged as High risk primarily due to abnormal spending behavior and unusual transaction timing. Immediate investigation is recommended before authorizing the payment.
 
 ---
 
-## Analyze Transaction
+## Rule-Based Fallback
 
-```
-POST /analyze
-```
+If the Ollama server is unavailable or times out, the system automatically generates a deterministic explanation based on SHAP outputs.
 
-Example Response
-
-```json
-{
-    "prediction": "Normal",
-    "anomaly_score": 0.016,
-    "risk_score": 0.268,
-    "risk_level": "Low",
-    "recommended_action": "Approve",
-    "top_features": [
-        {
-            "feature": "is_weekend",
-            "impact": 0.021149,
-            "direction": "Increase Risk"
-        },
-        {
-            "feature": "home_city",
-            "impact": 0.018796,
-            "direction": "Increase Risk"
-        }
-    ],
-    "explanation": "Transaction flagged as Low risk primarily due to abnormal patterns in weekend activity, customer location, and customer financial profile."
-}
-```
-
----
-
-# Model Training
-
-Training is performed using
-
-```
-python -m training.train
-```
-
-The training pipeline performs
-
-1. Load datasets
-2. Feature engineering
-3. Data preprocessing
-4. Isolation Forest training
-5. Model serialization
-6. MLflow experiment tracking
-
-Generated artifacts
-
-```
-models/
-
-isolation_forest.pkl
-scaler.pkl
-metadata.json
-```
+This ensures the API always returns an explanation, even without the LLM.
 
 ---
 
 # MLflow Experiment Tracking
 
-The project integrates MLflow to track machine learning experiments.
+Model training is tracked using MLflow.
 
-Each run automatically logs:
-
-Start the MLflow tracking UI:
-
-```bash
-mlflow ui
+Each training run automatically logs:
 
 ## Parameters
 
@@ -435,105 +441,332 @@ mlflow ui
 
 - Number of Samples
 - Number of Features
-- Training Time
-- Numerical Features
-- Categorical Features
+- Number of Numerical Features
+- Number of Categorical Features
+- Total Training Time
 
 ## Artifacts
 
-- Trained Model
+- Trained Isolation Forest Model
 - Preprocessing Pipeline
-- Metadata
+- Metadata JSON
 
-This enables reproducible training and experiment comparison.
+MLflow enables reproducible experiments and comparison between model versions.
 
----
+To launch the MLflow UI:
 
-# Technologies
+```bash
+mlflow ui
+```
 
-| Category | Technology |
-|------------|------------|
-| Language | Python 3 |
-| API | FastAPI |
-| Machine Learning | Scikit-learn |
-| Explainability | SHAP |
-| Experiment Tracking | MLflow |
-| Data Processing | Pandas |
-| Numerical Computing | NumPy |
-| Visualization | Matplotlib |
-| Model Persistence | Joblib |
-| Local LLM | Ollama |
-| LLM Model | Qwen2.5:3B |
+The dashboard is available at:
+
+```
+http://127.0.0.1:5000
+```
 
 ---
 
-# Production Features
 
-- Isolation Forest anomaly detection
-- Advanced fraud feature engineering
-- Geographic inconsistency detection
-- Customer behavioral profiling
-- Merchant behavior analytics
-- Rolling transaction frequency analysis
-- Stable 0–1 fraud risk score normalization
-- Business decision engine
-- SHAP Explainable AI
-- K-Means optimized SHAP background sampling
-- Cached SHAP explainer
-- Local LLM fraud explanation generation
-- Rule-based explanation fallback
-- FastAPI REST API
-- MLflow experiment tracking
-- Model persistence
-- Comprehensive logging
-- Modular production-ready architecture
+
+# Installation
+
+## 1. Clone the Repository
+
+```bash
+git clone https://github.com/abdullahsamara99/Fraud-Intelligence-System.git
+cd Fraud-Intelligence-System
+```
 
 ---
 
-# Future Improvements
+## 2. Create a Virtual Environment
 
-- Graph-based fraud detection
-- Customer risk profiling
-- Real-time streaming with Kafka
-- Model registry using MLflow
-- Drift detection
-- Active learning
-- Fraud investigation dashboard
-- Role-based authentication
-- Docker deployment
-- Kubernetes deployment
+### Windows
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+### Linux / macOS
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
 ---
 
---
+## 3. Install Dependencies
 
-## Start the API
+```bash
+pip install -r requirements.txt
+```
 
-Launch the FastAPI application:
+---
+
+## 4. Install Ollama
+
+Download Ollama from:
+
+https://ollama.com/download
+
+Pull the Qwen model:
+
+```bash
+ollama pull qwen2.5:3b
+```
+
+Start Ollama:
+
+```bash
+ollama serve
+```
+
+The Fraud Intelligence System will automatically connect to:
+
+```
+http://localhost:11434
+```
+
+---
+
+# Training the Model
+
+Train the Isolation Forest model:
+
+```bash
+python -m training.train
+```
+
+The training pipeline performs:
+
+- Data loading
+- Feature engineering
+- Data preprocessing
+- Isolation Forest training
+- Model serialization
+- MLflow experiment logging
+
+Generated artifacts:
+
+```
+models/
+│
+├── isolation_forest.pkl
+├── scaler.pkl
+└── metadata.json
+```
+
+---
+
+# Running MLflow
+
+After training the model, launch MLflow:
+
+```bash
+mlflow ui
+```
+
+Open your browser:
+
+```
+http://127.0.0.1:5000
+```
+
+MLflow tracks:
+
+- Experiment history
+- Parameters
+- Metrics
+- Models
+- Artifacts
+
+---
+
+# Running the API
+
+Start the FastAPI application:
 
 ```bash
 uvicorn api.app:app --reload
 ```
 
-The API will be available at:
+Default URL:
 
 ```
 http://127.0.0.1:8000
 ```
 
-Interactive API documentation:
+Interactive Swagger documentation:
 
 ```
 http://127.0.0.1:8000/docs
 ```
 
+Alternative ReDoc documentation:
+
+```
+http://127.0.0.1:8000/redoc
+```
+
+---
+
+# API Endpoint
+
+## POST /analyze
+
+Accepts one transaction and returns:
+
+- Isolation Forest prediction
+- Raw anomaly score
+- Normalized fraud risk score
+- Business decision
+- SHAP feature importance
+- LLM-generated explanation
+
+---
+
+# Example Request
+
+```json
+{
+  "transaction_id": "TX100001",
+  "customer_id": "C1001",
+  "account_number": "ACC0001",
+  "timestamp": "2025-07-15 22:45:00",
+  "transaction_date": "2025-07-15",
+  "transaction_time": "22:45:00",
+  "transaction_amount": 9500,
+  "currency": "USD",
+  "transaction_country": "United States",
+  "transaction_country_iso": "US",
+  "transaction_city": "New York",
+  "is_cross_border": 0,
+  "merchant_name": "Apple Store",
+  "merchant_category": "Electronics",
+  "channel": "POS",
+  "card_type": "Credit",
+  "transaction_type": "Purchase",
+  "home_country": "United States",
+  "home_city": "New York",
+  "avg_monthly_income": 4500,
+  "account_age_days": 850
+}
+```
+
+---
+
+# Example Response
+
+```json
+{
+  "prediction": "Anomalous",
+  "anomaly_score": -0.0518,
+  "risk_score": 0.4036,
+  "risk_level": "High",
+  "recommended_action": "Block Transaction",
+  "top_features": [
+    {
+      "feature": "transaction_amount",
+      "impact": 0.05583,
+      "direction": "Increase Risk"
+    },
+    {
+      "feature": "is_weekend",
+      "impact": 0.04657,
+      "direction": "Increase Risk"
+    },
+    {
+      "feature": "home_city",
+      "impact": 0.01927,
+      "direction": "Increase Risk"
+    },
+    {
+      "feature": "avg_monthly_income",
+      "impact": 0.01879,
+      "direction": "Increase Risk"
+    },
+    {
+      "feature": "is_night",
+      "impact": 0.01545,
+      "direction": "Increase Risk"
+    }
+  ],
+  "explanation": "Transaction flagged as High risk primarily due to abnormal patterns in transaction amount, weekend activity, and customer location. Manual investigation is recommended before approving the transaction."
+}
+```
+
+---
+
+# Technology Stack
+
+| Category | Technology |
+|----------|------------|
+| Language | Python 3 |
+| Machine Learning | Scikit-learn |
+| Explainability | SHAP |
+| Local LLM | Qwen2.5:3b (Ollama) |
+| API | FastAPI |
+| Validation | Pydantic |
+| Data Processing | Pandas |
+| Model Serialization | Joblib |
+| Experiment Tracking | MLflow |
+| Visualization | Matplotlib |
+
+---
+
+# Future Improvements
+
+Potential enhancements include:
+
+- Supervised fraud classification models (XGBoost, LightGBM, CatBoost)
+- Ensemble anomaly detection
+- Real-time Kafka streaming
+- Feature Store integration
+- Model Registry with MLflow
+- Automated retraining pipelines
+- Docker Compose deployment
+- Kubernetes deployment
+- Authentication and authorization
+- Grafana monitoring dashboard
+- Prometheus metrics
+- Cloud deployment (AWS, Azure, GCP)
+
 ---
 
 # Author
 
-**Fraud Intelligence System**
+**Abdullah Samara**
 
-An Explainable AI fraud detection platform that combines anomaly detection, explainable machine learning, business decision rules, and local Large Language Models to support real-time fraud investigation in financial institutions.
-=======
-# Fraud-Intelligence-System
->>>>>>> 55dab63ca4b408cc2339be3a82df909c6c034b80
+Artificial Intelligence Engineer
+
+GitHub:
+https://github.com/abdullahsamara99
+
+LinkedIn:
+https://www.linkedin.com/in/abdullahsamara99
+
+---
+
+# License
+
+This project is intended for educational, research, and portfolio purposes.
+
+---
+
+## Acknowledgments
+
+This project leverages several open-source technologies:
+
+- Scikit-learn
+- SHAP
+- FastAPI
+- MLflow
+- Pandas
+- Ollama
+- Qwen2.5
+- Joblib
+
+Special thanks to the open-source community for providing the tools that made this project possible.
