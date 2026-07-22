@@ -21,13 +21,10 @@ decision_engine:
   high_threshold: 0.80
   escalate_threshold: 0.90
 
-  level: INFO
-  file: logs/fraud_system.log
-
 api:
   host: 127.0.0.1
   port: 8000
 
-  logging:
+logging:
   level: INFO
   file: logs/fraud_system.log
