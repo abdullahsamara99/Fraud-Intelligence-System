@@ -82,12 +82,58 @@ def create_features(df: pd.DataFrame) -> pd.DataFrame:
               .expanding()
               .mean()
               .reset_index(level=0, drop=True)
-    )  
-               
+        )
+
         df["customer_transaction_count"] = (
             df.groupby("customer_id")["transaction_amount"]
               .cumcount() + 1
         )
+
+        # --------------------------------------------------
+        # Customer Behavioral Aggregates (Baseline Features)
+        # Group-by aggregates that capture each customer's typical
+        # behavior across day, merchant category, country, and channel.
+        # --------------------------------------------------
+
+        logger.info("Creating customer behavioral aggregates...")
+
+        # Daily key (derived from timestamp) used for velocity aggregates.
+        df["transaction_day"] = df["timestamp"].dt.normalize()
+
+        # 1. Customer + Day : daily spending velocity & activity frequency
+        daily_group = df.groupby(
+            ["customer_id", "transaction_day"]
+        )["transaction_amount"]
+
+        df["cust_daily_total_amount"] = daily_group.transform("sum")
+        df["cust_daily_txn_count"] = daily_group.transform("count")
+
+        # 2. Customer + Merchant Category : sector purchasing behavior
+        cat_group = df.groupby(
+            ["customer_id", "merchant_category"]
+        )["transaction_amount"]
+
+        df["cust_cat_total_amount"] = cat_group.transform("sum")
+        df["cust_cat_txn_count"] = cat_group.transform("count")
+
+        # 3. Customer + Country : geographic exposure
+        df["cust_country_txn_count"] = (
+            df.groupby(
+                ["customer_id", "transaction_country"]
+            )["transaction_amount"]
+            .transform("count")
+        )
+
+        # 4. Customer + Channel : payment-method anomalies
+        df["cust_channel_txn_count"] = (
+            df.groupby(
+                ["customer_id", "channel"]
+            )["transaction_amount"]
+            .transform("count")
+        )
+
+        # Helper key is not a model feature — drop it.
+        df = df.drop(columns=["transaction_day"])
 
         # --------------------------------------------------
         # Transaction Frequency Over Time Windows
@@ -191,6 +237,12 @@ if __name__ == "__main__":
             "is_home_city",
             "transactions_last_24h",
             "transactions_last_7d",
+            "cust_daily_total_amount",
+            "cust_daily_txn_count",
+            "cust_cat_total_amount",
+            "cust_cat_txn_count",
+            "cust_country_txn_count",
+            "cust_channel_txn_count",
         ]
     )
 
