@@ -76,47 +76,42 @@ Unlike traditional fraud detection systems that only classify transactions as fr
                           ▼
                   FastAPI REST API
 ```
----
-Fraud_System/
+# Project Structure
 
+```text
+Fraud_System/
 ├── api/
 │   ├── app.py
 │   ├── routes.py
 │   └── schemas.py
-│
 ├── config/
-│
 ├── data/
 │   └── raw/
-│
 ├── features/
 │   ├── preprocess.py
 │   └── feature_engineering.py
-│
 ├── inference/
 │   ├── predictor.py
 │   ├── explain.py
 │   ├── decision_engine.py
 │   └── pipeline.py
-│
 ├── models/
-│
 ├── tests/
 │   ├── test_decision_engine.py
 │   ├── test_feature_engineering.py
 │   └── test_predictor.py
-│
 ├── training/
 │   ├── train.py
 │   └── evaluate.py
-│
 ├── utils/
 │   └── logger.py
-│
 ├── requirements.txt
 └── README.md
+```
 
 ---
+
+# Dataset
 
 # Dataset
 
