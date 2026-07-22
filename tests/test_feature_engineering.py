@@ -20,7 +20,9 @@ def test_feature_engineering_creates_columns():
         "transactions_last_7d",
         "merchant_category_frequency",
         "amount_to_income_ratio",
+        "customer_avg_amount",           
+        "customer_transaction_count",   
     ]
 
     for column in expected_columns:
-        assert column in df.columns
+        assert column in df.columns, f"Column '{column}' missing from engineered dataframe"
