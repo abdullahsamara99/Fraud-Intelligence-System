@@ -76,7 +76,7 @@ Unlike traditional fraud detection systems that only classify transactions as fr
                           ▼
                   FastAPI REST API
 ```
-
+---
 Fraud_System/
 
 ├── api/
