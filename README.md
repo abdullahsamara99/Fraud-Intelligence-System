@@ -77,11 +77,6 @@ Unlike traditional fraud detection systems that only classify transactions as fr
                   FastAPI REST API
 ```
 
----
-
-# Project Structure
-
-```text
 Fraud_System/
 
 ├── api/
@@ -106,17 +101,20 @@ Fraud_System/
 │
 ├── models/
 │
-├── training/
-│   └── train.py
-│   └── evaluate.py
+├── tests/
+│   ├── test_decision_engine.py
+│   ├── test_feature_engineering.py
+│   └── test_predictor.py
 │
+├── training/
+│   ├── train.py
+│   └── evaluate.py
 │
 ├── utils/
 │   └── logger.py
 │
 ├── requirements.txt
 └── README.md
-```
 
 ---
 
