@@ -419,6 +419,11 @@ The project integrates MLflow to track machine learning experiments.
 
 Each run automatically logs:
 
+Start the MLflow tracking UI:
+
+```bash
+mlflow ui
+
 ## Parameters
 
 - Algorithm
@@ -497,6 +502,30 @@ This enables reproducible training and experiment comparison.
 - Role-based authentication
 - Docker deployment
 - Kubernetes deployment
+
+---
+
+--
+
+## Start the API
+
+Launch the FastAPI application:
+
+```bash
+uvicorn api.app:app --reload
+```
+
+The API will be available at:
+
+```
+http://127.0.0.1:8000
+```
+
+Interactive API documentation:
+
+```
+http://127.0.0.1:8000/docs
+```
 
 ---
 
