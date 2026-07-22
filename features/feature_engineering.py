@@ -79,12 +79,14 @@ def create_features(df: pd.DataFrame) -> pd.DataFrame:
 
         df["customer_avg_amount"] = (
             df.groupby("customer_id")["transaction_amount"]
-            .transform("mean")
-        )
-
+              .expanding()
+              .mean()
+              .reset_index(level=0, drop=True)
+    )  
+               
         df["customer_transaction_count"] = (
             df.groupby("customer_id")["transaction_amount"]
-            .transform("count")
+              .cumcount() + 1
         )
 
         # --------------------------------------------------
