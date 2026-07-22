@@ -12,7 +12,7 @@ def test_feature_engineering_creates_columns():
     df = create_features(df.head(20))
 
     expected_columns = [
-          "is_weekend",
+        "is_weekend",
         "is_night",
         "hour",
         "day_of_week",
