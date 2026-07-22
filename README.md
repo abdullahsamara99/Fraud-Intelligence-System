@@ -108,17 +108,13 @@ Fraud_System/
 │
 ├── training/
 │   └── train.py
-│
-├── evaluation/
 │   └── evaluate.py
 │
-├── tests/
 │
 ├── utils/
 │   └── logger.py
 │
 ├── requirements.txt
-├── Dockerfile
 └── README.md
 ```
 
