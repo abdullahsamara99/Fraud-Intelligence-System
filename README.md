@@ -151,6 +151,8 @@ The system creates domain-specific behavioral features beyond raw transaction va
 
 **Customer behavioral:** running average transaction amount, transaction count, rolling 24-hour and 7-day transaction counts, amount-to-income ratio.
 
+**Customer aggregates (baseline behavior):** per-customer group-by aggregates that capture typical behavior across four dimensions — daily spending velocity (`cust_daily_total_amount`, `cust_daily_txn_count`), merchant-category behavior (`cust_cat_total_amount`, `cust_cat_txn_count`), geographic exposure (`cust_country_txn_count`), and payment channel (`cust_channel_txn_count`).
+
 **Geographic:** cross-border indicator, home-country match, home-city match.
 
 **Merchant:** merchant category and merchant-category frequency.
@@ -188,7 +190,7 @@ Isolation Forest outputs a raw score via `decision_function()` where **higher = 
 Raw Isolation Forest Score
             │
             ▼
- Clip to Calibrated Bounds  (score_min, score_max)
+ Clip to Symmetric Bounds  (-scale, +scale)
             │
             ▼
  Absolute (Batch-Independent) Normalization
@@ -197,7 +199,7 @@ Raw Isolation Forest Score
  Fraud Risk Score (0 – 1)
 ```
 
-The `score_min` / `score_max` bounds are loaded from `models/metadata.json` (recommended: the 1st and 99th percentile of the training scores), falling back to safe defaults if absent. Because the bounds are absolute rather than per-batch, a single transaction always scores consistently regardless of request size.
+Isolation Forest offsets `decision_function` so the inlier/outlier boundary sits at **0** (inliers score above 0, the ~1% outliers below). The calibration therefore normalizes **symmetrically around zero**: `score_min = -scale` and `score_max = +scale`, where `scale` is the 99th percentile of the training scores. This pins `risk = 0.5` exactly on the anomaly boundary, so every normal transaction (score > 0) maps into the Low band and every anomaly (score < 0) maps to Medium or higher. The bounds are persisted to `models/metadata.json` at training time and loaded by `inference/predictor.py`. Because they are absolute rather than per-batch, a single transaction always scores consistently regardless of request size.
 
 | Risk Score | Interpretation |
 |-----------|----------------|
@@ -260,10 +262,10 @@ This guarantees the API always returns an explanation that matches the decision,
 
 ```json
 {
-  "transaction_id": "TX000000002",
+  "transaction_id": "TEST_ANOMALY_001",
   "prediction": "Anomalous",
-  "anomaly_score": -0.0761,
-  "risk_score": 0.4523,
+  "anomaly_score": -0.0914,
+  "risk_score": 0.7401,
   "risk_level": "High",
   "recommended_action": "Block Transaction",
   "top_features": [ ... ],
@@ -363,23 +365,23 @@ Accepts a single transaction and returns the prediction, raw anomaly score, norm
 
 ```json
 {
-  "transaction_id": "TX000000001",
-  "customer_id": "C000001",
-  "account_number": "ACC0000001",
-  "timestamp": "2025-03-14 13:20:00",
-  "transaction_amount": 85.50,
-  "currency": "USD",
-  "transaction_country": "United States",
-  "transaction_city": "New York",
+  "transaction_id": "TEST_NORMAL_001",
+  "customer_id": "CUST_00000",
+  "account_number": "ACC1000000",
+  "timestamp": "2025-03-18 13:20:00",
+  "transaction_amount": 45.90,
+  "currency": "JOD",
+  "transaction_country": "Jordan",
+  "transaction_city": "Amman",
   "is_cross_border": 0,
   "merchant_category": "Groceries",
   "channel": "POS",
   "card_type": "Credit",
   "transaction_type": "Purchase",
-  "home_country": "United States",
-  "home_city": "New York",
-  "avg_monthly_income": 4500,
-  "account_age_days": 850
+  "home_country": "Jordan",
+  "home_city": "Amman",
+  "avg_monthly_income": 900,
+  "account_age_days": 800
 }
 ```
 
@@ -387,20 +389,20 @@ Accepts a single transaction and returns the prediction, raw anomaly score, norm
 
 ```json
 {
-  "transaction_id": "TX000000001",
+  "transaction_id": "TEST_NORMAL_001",
   "prediction": "Normal",
-  "anomaly_score": 0.0746,
-  "risk_score": 0.1507,
+  "anomaly_score": 0.0636,
+  "risk_score": 0.3328,
   "risk_level": "Low",
   "recommended_action": "Approve",
   "top_features": [
-    { "feature": "home_country",           "impact": 0.020090, "direction": "Negligible" },
-    { "feature": "is_night",               "impact": 0.018447, "direction": "Negligible" },
-    { "feature": "hour",                   "impact": 0.016921, "direction": "Negligible" },
-    { "feature": "avg_monthly_income",     "impact": 0.009147, "direction": "Negligible" },
-    { "feature": "amount_to_income_ratio", "impact": 0.008554, "direction": "Negligible" }
+    { "feature": "home_country",           "impact": 0.017045, "direction": "Negligible" },
+    { "feature": "amount_to_income_ratio", "impact": 0.005749, "direction": "Negligible" },
+    { "feature": "transaction_amount",     "impact": 0.005720, "direction": "Negligible" },
+    { "feature": "transaction_country",    "impact": 0.004589, "direction": "Negligible" },
+    { "feature": "transactions_last_24h",  "impact": 0.003922, "direction": "Negligible" }
   ],
-  "explanation": "Transaction assessed as Low risk. Behavior is consistent with the customer's normal profile; no significant anomalies detected."
+  "explanation": "This transaction is consistent with the customer's established behavior profile, with no individual feature deviating significantly from normal patterns. It is assessed as Low risk and can be approved."
 }
 ```
 
@@ -408,15 +410,15 @@ Accepts a single transaction and returns the prediction, raw anomaly score, norm
 
 # Example: Anomalous Transaction
 
-**Request** (foreign country, night hours, ~500× the customer's income, gambling)
+**Request** (foreign country, night hours, ~47× the customer's monthly income, gambling, online transfer)
 
 ```json
 {
-  "transaction_id": "TX000000002",
-  "customer_id": "C000001",
-  "account_number": "ACC0000001",
-  "timestamp": "2025-03-15 03:12:00",
-  "transaction_amount": 47000.00,
+  "transaction_id": "TEST_ANOMALY_001",
+  "customer_id": "CUST_00000",
+  "account_number": "ACC1000000",
+  "timestamp": "2025-03-19 03:12:00",
+  "transaction_amount": 42000.00,
   "currency": "USD",
   "transaction_country": "UAE",
   "transaction_country_iso": "AE",
@@ -426,10 +428,10 @@ Accepts a single transaction and returns the prediction, raw anomaly score, norm
   "channel": "Online",
   "card_type": "Credit",
   "transaction_type": "Transfer",
-  "home_country": "United States",
-  "home_city": "New York",
-  "avg_monthly_income": 4500,
-  "account_age_days": 850
+  "home_country": "Jordan",
+  "home_city": "Amman",
+  "avg_monthly_income": 900,
+  "account_age_days": 800
 }
 ```
 
@@ -437,38 +439,41 @@ Accepts a single transaction and returns the prediction, raw anomaly score, norm
 
 ```json
 {
-  "transaction_id": "TX000000002",
+  "transaction_id": "TEST_ANOMALY_001",
   "prediction": "Anomalous",
-  "anomaly_score": -0.0761,
-  "risk_score": 0.4523,
+  "anomaly_score": -0.0914,
+  "risk_score": 0.7401,
   "risk_level": "High",
   "recommended_action": "Block Transaction",
   "top_features": [
-    { "feature": "transaction_amount", "impact": 0.053507, "direction": "Increase Risk" },
-    { "feature": "is_weekend",         "impact": 0.041835, "direction": "Increase Risk" },
-    { "feature": "transaction_type",   "impact": 0.032795, "direction": "Increase Risk" },
-    { "feature": "is_home_country",    "impact": 0.025615, "direction": "Negligible" },
-    { "feature": "home_city",          "impact": 0.020325, "direction": "Negligible" }
+    { "feature": "transaction_amount",      "impact": 0.037638, "direction": "Increase Risk" },
+    { "feature": "cust_daily_total_amount", "impact": 0.024405, "direction": "Negligible" },
+    { "feature": "account_age_days",        "impact": 0.024274, "direction": "Negligible" },
+    { "feature": "currency",                "impact": 0.018921, "direction": "Negligible" },
+    { "feature": "transaction_type",        "impact": 0.015860, "direction": "Negligible" }
   ],
-  "explanation": "Transaction flagged as High risk, driven mainly by transaction_amount, is_weekend, transaction_type. Recommended action: Block Transaction."
+  "explanation": "The anomaly-detection model flagged a transaction with an unusually high amount of 42,000, indicative of potential fraudulent activity. Given this atypical transaction value in conjunction with our high-risk assessment, we recommend blocking this transaction to prevent any unauthorized financial impact. Risk level: High; Recommended action: Block Transaction."
 }
 ```
+
+> The explanation above is live output from the local LLM (Qwen2.5 via Ollama), grounded in the SHAP-attributed `transaction_amount` feature. When Ollama is unavailable, the deterministic rule-based fallback produces an equivalent narrative.
 
 ---
 
 # Results & Evaluation
 
-The two examples above demonstrate the system across the risk spectrum:
+The two verified examples above demonstrate the system across the risk spectrum:
 
 | | Normal transaction | Anomalous transaction |
 |---|---|---|
 | Prediction | Normal | Anomalous |
-| Anomaly score | 0.0746 | -0.0761 |
-| Risk score | 0.1507 | 0.4523 |
+| Anomaly score | 0.0636 | -0.0914 |
+| Risk score | 0.3328 | 0.7401 |
+| Risk level | Low | High |
 | Decision | Approve | Block Transaction |
-| Explanation | Consistent with normal profile | Driven by amount / timing / type |
+| Explanation | Consistent with normal profile | LLM narrative citing the 42,000 amount |
 
-The anomalous transaction is caught by the model's `-1` flag (High → Block) even though its normalized risk score sits mid-range, illustrating that the decision engine respects both the model's judgment and the numeric threshold. The normal transaction correctly shows all attributions as `Negligible`, so its explanation does not fabricate risk drivers.
+With the symmetric-around-zero calibration, normal transactions map cleanly into the Low band (0.33) while anomalies rise into the High band (0.74) and are blocked. The risk score crosses 0.5 exactly at the model's anomaly boundary, so the numeric risk level and the model's own `-1` flag agree. The normal transaction shows all attributions as `Negligible`, so its explanation does not fabricate risk drivers, while the anomalous one surfaces `transaction_amount` as the dominant grounded driver.
 
 ## Proxy Evaluation (unsupervised)
 
@@ -476,7 +481,16 @@ Since training is unlabeled, model behavior is validated with proxy methods in `
 
 - **Anomaly score distribution inspection** — histogram of normalized risk scores.
 - **Distribution-shift analysis** — a two-sample Kolmogorov–Smirnov test between historical and recent batches, alerting only when the KS effect size exceeds a threshold (avoiding large-sample p-value artifacts).
-- **Precision@K** *(recommended when a hidden `is_fraud` label is available)* — rank transactions by risk score and measure how many of the top-K are true frauds.
+- **Precision@K** — computed during training against a hidden `is_fraud` label (never used for model fitting). Transactions are ranked by anomaly score and the fraction of true frauds among the top-K is reported, logged to MLflow as `precision_at_100`, `precision_at_500`, `precision_at_1000`, and `precision_at_num_frauds`.
+
+Latest run (from MLflow):
+
+| Metric | Value |
+|--------|-------|
+| Precision@100 | _<fill from MLflow>_ |
+| Precision@500 | _<fill from MLflow>_ |
+| Precision@1000 | _<fill from MLflow>_ |
+| Precision@(#frauds) | _<fill from MLflow>_ |
 
 Run:
 
