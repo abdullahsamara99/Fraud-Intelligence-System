@@ -18,8 +18,8 @@ training:
 
 decision_engine:
   medium_threshold: 0.50
-  high_threshold: 0.80
-  escalate_threshold: 0.90
+  high_threshold: 0.70
+  escalate_threshold: 0.85
 
 api:
   host: 127.0.0.1

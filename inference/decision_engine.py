@@ -16,8 +16,8 @@ class DecisionEngine:
             self.medium_threshold = config.get("decision_engine", "medium_threshold")
         except Exception as e:  # noqa: BLE001
             logger.warning(f"Using default thresholds ({e}).")
-            self.escalate_threshold = 0.90
-            self.high_threshold = 0.80
+            self.escalate_threshold = 0.85
+            self.high_threshold = 0.70
             self.medium_threshold = 0.50
 
     def evaluate(self, prediction: int, risk_score: float) -> dict:
