@@ -4,9 +4,17 @@ from utils.logger import logger
 
 class DecisionEngine:
     """
-    Maps model output -> risk level -> operational action.
+    Maps the normalized risk score into a risk level and operational action.
 
-    Actions (spec §5.4): Approve, Manual Review (Flag), Block, Escalate.
+    With the symmetric-around-zero calibration, risk_score monotonically
+    encodes anomaly severity (0.5 = the model's inlier/outlier boundary),
+    so tiers are driven purely by risk bands. All four actions are reachable:
+    Approve / Flag for Review / Block / Escalate.
+
+        risk >= escalate_threshold (0.85)  -> Critical -> Escalate to Fraud Team
+        risk >= high_threshold     (0.70)  -> High     -> Block Transaction
+        risk >= medium_threshold   (0.50)  -> Medium   -> Flag for Review
+        otherwise                          -> Low      -> Approve
     """
 
     def __init__(self):
@@ -21,16 +29,20 @@ class DecisionEngine:
             self.medium_threshold = 0.50
 
     def evaluate(self, prediction: int, risk_score: float) -> dict:
-        # Highest tier: model flagged anomaly AND very high score -> humans
-        if prediction == -1 and risk_score >= self.escalate_threshold:
+        if risk_score >= self.escalate_threshold:
             return {"risk_level": "Critical",
                     "recommended_action": "Escalate to Fraud Team"}
 
-        if prediction == -1 or risk_score >= self.high_threshold:
+        if risk_score >= self.high_threshold:
             return {"risk_level": "High",
                     "recommended_action": "Block Transaction"}
 
         if risk_score >= self.medium_threshold:
+            return {"risk_level": "Medium",
+                    "recommended_action": "Flag for Review"}
+
+        # Safety floor: a model-flagged anomaly should never be auto-approved.
+        if prediction == -1:
             return {"risk_level": "Medium",
                     "recommended_action": "Flag for Review"}
 
