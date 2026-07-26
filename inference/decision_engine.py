@@ -11,8 +11,8 @@ class DecisionEngine:
     so tiers are driven purely by risk bands. All four actions are reachable:
     Approve / Flag for Review / Block / Escalate.
 
-        risk >= escalate_threshold (0.85)  -> Critical -> Escalate to Fraud Team
-        risk >= high_threshold     (0.70)  -> High     -> Block Transaction
+        risk >= escalate_threshold (0.77)  -> Critical -> Escalate to Fraud Team
+        risk >= high_threshold     (0.68)  -> High     -> Block Transaction
         risk >= medium_threshold   (0.50)  -> Medium   -> Flag for Review
         otherwise                          -> Low      -> Approve
     """
@@ -24,8 +24,8 @@ class DecisionEngine:
             self.medium_threshold = config.get("decision_engine", "medium_threshold")
         except Exception as e:  # noqa: BLE001
             logger.warning(f"Using default thresholds ({e}).")
-            self.escalate_threshold = 0.85
-            self.high_threshold = 0.70
+            self.escalate_threshold = 0.77
+            self.high_threshold = 0.68
             self.medium_threshold = 0.50
 
     def evaluate(self, prediction: int, risk_score: float) -> dict:
